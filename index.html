@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>IMG SRC 추출 & 스택 출력</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    textarea { width: 100%; height: 150px; margin-bottom: 10px; }
+    button { padding: 10px 20px; margin: 5px 0; cursor: pointer; }
+    .stack-container {
+      text-align: center;
+      max-width: 1000px;
+      margin: 20px auto;
+    }
+    .code-box {
+      background: #f4f4f4;
+      border: 1px solid #ccc;
+      padding: 10px;
+      margin-top: 15px;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+  </style>
+</head>
+<body>
+  <h2>HTML IMG SRC 추출 후 스택 출력</h2>
+  <textarea id="htmlInput" placeholder="여기에 HTML 코드를 붙여넣으세요"></textarea>
+  <br>
+  <button onclick="extractAndStack()">추출 & 출력</button>
+  <button onclick="copyCode()">코드 복사하기</button>
+
+  <div id="result"></div>
+  <div class="code-box" id="codeOutput"></div>
+
+  <script>
+    function extractAndStack() {
+      const input = document.getElementById("htmlInput").value;
+
+      // 모든 img src 찾기
+      const regex = /<img[^>]+src=["']([^"']+)["']/gi;
+      let match;
+      const urls = [];
+
+      while ((match = regex.exec(input)) !== null) {
+        urls.push(match[1]);
+      }
+
+      const resultDiv = document.getElementById("result");
+      const codeOutput = document.getElementById("codeOutput");
+
+      if (urls.length > 0) {
+        // 미리보기 HTML
+        let previewHtml = '<div class="stack-container">';
+        // 실제 코드 (복사용)
+        let codeHtml = '<div style="text-align:center; max-width:1000px; margin:0 auto;">\n';
+
+        urls.forEach(url => {
+          previewHtml += `<img src="${url}" style="width:100%; height:auto;">`;
+          codeHtml += `  <img src="${url}" style="width:100%; height:auto;">\n`;
+        });
+
+        previewHtml += '</div>';
+        codeHtml += '</div>';
+
+        resultDiv.innerHTML = previewHtml;
+        codeOutput.innerText = codeHtml; // 코드 출력
+      } else {
+        resultDiv.innerHTML = "<p style='color:red'>img src를 찾을 수 없습니다.</p>";
+        codeOutput.innerText = "";
+      }
+    }
+
+    function copyCode() {
+      const codeBox = document.getElementById("codeOutput");
+      if (codeBox.innerText.trim() !== "") {
+        navigator.clipboard.writeText(codeBox.innerText).then(() => {
+          alert("코드가 클립보드에 복사되었습니다!");
+        });
+      } else {
+        alert("복사할 코드가 없습니다. 먼저 추출을 실행해주세요.");
+      }
+    }
+  </script>
+</body>
+</html>
