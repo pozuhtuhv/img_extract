@@ -23,8 +23,8 @@
     .stack-container img {
       width: 100%;
       height: auto;
-      display: block; /* 줄바꿈 강제 */
-      margin: 0;      /* 여백 제거 */
+      display: block;
+      margin: 0;
       padding: 0;
       border: none;
     }
@@ -60,10 +60,10 @@
       const codeOutput = document.getElementById("codeOutput");
 
       if (urls.length > 0) {
-        // HTML 코드 생성
+        // HTML 코드 생성 (공백 제거 스타일 포함)
         let codeHtml = '<div style="text-align:center; max-width:1000px; margin:0 auto;">\n';
         urls.forEach(url => {
-          codeHtml += `  <img src="${url}" style="width:100%; height:auto;">\n`;
+          codeHtml += `  <img src="${url}" style="width:100%; height:auto; display:block; margin:0; padding:0; border:none;">\n`;
         });
         codeHtml += '</div>';
 
@@ -73,7 +73,7 @@
         // 실제 이미지 미리보기
         let previewHtml = '<div class="stack-container">';
         urls.forEach(url => {
-          previewHtml += `<img src="${url}" style="width:100%; height:auto;">`;
+          previewHtml += `<img src="${url}" style="width:100%; height:auto; display:block; margin:0; padding:0; border:none;">`;
         });
         previewHtml += '</div>';
 
