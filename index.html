@@ -1,98 +1,94 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
-  <title>IMG SRC 추출 & 스택 출력</title>
+  <meta charset="UTF-8" />
+  <title>IMG SRC 추출 & 스택 출력 (쇼핑몰 호환)</title>
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; }
     textarea { width: 100%; height: 150px; margin-bottom: 10px; }
     button { padding: 10px 20px; margin: 5px 5px 15px 0; cursor: pointer; }
     .code-box {
-      background: #f4f4f4;
-      border: 1px solid #ccc;
-      padding: 10px;
-      margin-top: 10px;
-      white-space: pre-wrap;
-      word-break: break-all;
+      background: #f4f4f4; border: 1px solid #ccc; padding: 10px; margin-top: 10px;
+      white-space: pre-wrap; word-break: break-all;
     }
-    .stack-container {
-      text-align: center;
-      max-width: 1000px;
-      margin: 30px auto 0 auto;
+    /* 미리보기 전용 */
+    .stack-preview {
+      text-align: center; max-width: 1000px; margin: 30px auto 0 auto;
+      line-height: 0; font-size: 0;
     }
-    .stack-container img {
-      width: 100%;
-      height: auto;
-      display: block;
-      margin: 0;
-      padding: 0;
-      border: none;
+    .stack-preview * { margin:0; padding:0; border:0; }
+    .stack-preview p { margin:0 !important; } /* 에디터가 <p>를 싸도 여백 제거 */
+    .stack-preview br { display:none; }       /* 자동 삽입 br 무력화 */
+    .stack-preview img {
+      width:100%; height:auto; display:block; margin:0; padding:0; border:0; vertical-align:top;
     }
   </style>
 </head>
 <body>
-  <h2>HTML IMG SRC 추출 후 코드 & 미리보기</h2>
-  <textarea id="htmlInput" placeholder="여기에 HTML 코드를 붙여넣으세요"></textarea>
-  <br>
+  <h2>HTML IMG SRC 추출 후 코드 & 미리보기 (공백 제거)</h2>
+  <textarea id="htmlInput" placeholder="여기에 HTML 코드를 붙여넣으세요"></textarea><br />
   <button onclick="extractAndStack()">추출</button>
   <button onclick="copyCode()">코드 복사하기</button>
 
-  <!-- 코드 출력 박스 -->
+  <!-- 복사 코드 -->
   <div class="code-box" id="codeOutput"></div>
 
-  <!-- 이미지 미리보기 -->
-  <div id="result"></div>
+  <!-- 미리보기 (맨 아래) -->
+  <div id="preview"></div>
 
   <script>
+    function sanitizeInput(html) {
+      // 편집기가 만들어놓은 쓸모없는 공백용 <br> 제거
+      html = html.replace(/<br\s*\/?>/gi, '');
+      // <img>를 감싼 <p>를 벗겨내되, 내부 img는 유지
+      html = html.replace(/<p[^>]*>\s*(<img[^>]*>)\s*<\/p>/gi, '$1');
+      return html;
+    }
+
     function extractAndStack() {
-      const input = document.getElementById("htmlInput").value;
+      let input = document.getElementById("htmlInput").value;
+      input = sanitizeInput(input);
 
-      // 모든 img src 찾기
       const regex = /<img[^>]+src=["']([^"']+)["']/gi;
-      let match;
-      const urls = [];
+      let match, urls = [];
+      while ((match = regex.exec(input)) !== null) urls.push(match[1]);
 
-      while ((match = regex.exec(input)) !== null) {
-        urls.push(match[1]);
-      }
-
-      const resultDiv = document.getElementById("result");
       const codeOutput = document.getElementById("codeOutput");
+      const preview = document.getElementById("preview");
 
-      if (urls.length > 0) {
-        // HTML 코드 생성 (공백 제거 스타일 포함)
-        let codeHtml = '<div style="text-align:center; max-width:1000px; margin:0 auto;">\n';
-        urls.forEach(url => {
-          codeHtml += `  <img src="${url}" style="width:100%; height:auto; display:block; margin:0; padding:0; border:none;">\n`;
-        });
-        codeHtml += '</div>';
-
-        // 코드 박스에 출력
-        codeOutput.innerText = codeHtml;
-
-        // 실제 이미지 미리보기
-        let previewHtml = '<div class="stack-container">';
-        urls.forEach(url => {
-          previewHtml += `<img src="${url}" style="width:100%; height:auto; display:block; margin:0; padding:0; border:none;">`;
-        });
-        previewHtml += '</div>';
-
-        resultDiv.innerHTML = previewHtml;
-      } else {
-        resultDiv.innerHTML = "<p style='color:red'>img src를 찾을 수 없습니다.</p>";
-        codeOutput.innerText = "";
+      if (urls.length === 0) {
+        codeOutput.innerText = '';
+        preview.innerHTML = "<p style='color:red'>img src를 찾을 수 없습니다.</p>";
+        return;
       }
+
+      // ★ 쇼핑몰 호환: 컨테이너에 line-height/font-size 0, 내부 여백 0
+      // ★ 이미지 사이에 개행/공백을 아예 넣지 않음 (join(''))
+      const containerOpen =
+        '<div style="text-align:center; max-width:1000px; margin:0 auto; line-height:0; font-size:0;">';
+      const imgTpl = (u) =>
+        `<img src="${u}" style="width:100%; height:auto; display:block; margin:0; padding:0; border:0; vertical-align:top;">`;
+      const containerClose = '</div>';
+
+      const codeHtml = containerOpen + urls.map(imgTpl).join('') + containerClose;
+
+      // 복사 코드 표시(텍스트)
+      codeOutput.innerText = codeHtml;
+
+      // 미리보기
+      preview.innerHTML =
+        '<div class="stack-preview">' + urls.map(imgTpl).join('') + '</div>';
     }
 
     function copyCode() {
-      const codeBox = document.getElementById("codeOutput");
-      if (codeBox.innerText.trim() !== "") {
-        navigator.clipboard.writeText(codeBox.innerText).then(() => {
-          alert("코드가 클립보드에 복사되었습니다!");
-        });
-      } else {
-        alert("복사할 코드가 없습니다. 먼저 추출을 실행해주세요.");
+      const code = document.getElementById("codeOutput").innerText.trim();
+      if (!code) {
+        alert("복사할 코드가 없습니다. 먼저 추출을 실행하세요.");
+        return;
       }
+      navigator.clipboard.writeText(code).then(() => {
+        alert("코드가 클립보드에 복사되었습니다!");
+      });
     }
   </script>
 </body>
