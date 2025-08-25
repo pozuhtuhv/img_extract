@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <title>IMG SRC 추출 → 공백 없는 스택 변환</title>
+  <title>IMG SRC 추출 → 공백 없는 스택 변환 (.gif 개선)</title>
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; }
     textarea { width: 100%; height: 180px; margin-bottom: 10px; }
@@ -11,12 +11,10 @@
       background:#f6f6f6; border:1px solid #ccc; padding:10px;
       white-space:pre-wrap; word-break:break-all; margin-bottom: 16px;
     }
-    /* 미리보기: 페이지 맨 아래 */
     .stack-preview {
       text-align:center; max-width:1000px; margin: 24px auto 0;
       line-height:0; font-size:0;
     }
-    /* 각 이미지의 스타일은 인라인(style="...")로 주입하므로 여기서는 공통 초기화만 */
     .stack-preview img {
       display:block; margin:0; padding:0; border:0; vertical-align:top;
       height:auto;
@@ -29,18 +27,15 @@
   <button onclick="run()">추출 & 코드생성</button>
   <button onclick="copyCode()">코드 복사</button>
 
-  <!-- 복사용 코드 출력 (위) -->
   <div id="codeOutput" class="code-box"></div>
-
-  <!-- 미리보기 (맨 아래) -->
   <div id="preview"></div>
 
   <script>
     function run() {
       const raw = document.getElementById('htmlInput').value || '';
 
-      // 1) HTML에서 img src 전부 추출
-      const regex = /<img[^>]*\ssrc\s*=\s*[\"']([^\"']+)[\"'][^>]*>/gi;
+      // <img ... src="...">의 src만 모두 추출
+      const regex = /<img[^>]*\ssrc\s*=\s*["']([^"']+)["'][^>]*>/gi;
       const urls = [];
       let m;
       while ((m = regex.exec(raw)) !== null) urls.push(m[1]);
@@ -54,29 +49,26 @@
         return;
       }
 
-      // 2) .gif 여부 판별 및 스타일 분기
+      // .gif 여부 판별 (쿼리/해시 제거 후 검사)
       const isGif = (u) => {
         try {
           const noHash = u.split('#')[0];
           const base = noHash.split('?')[0];
           return base.toLowerCase().endsWith('.gif');
-        } catch(e) { return /\.gif(\?|#|$)/i.test(u); }
+        } catch (e) { return /\.gif(\?|#|$)/i.test(u); }
       };
 
       const styleGif = "width: 90%; height:auto; display:block; margin: 0px 0px 0px 5%; padding: 0; border:0; vertical-align:top;";
       const styleDefault = "width:100%; height:auto; display:block; margin:0; padding:0; border:0; vertical-align:top;";
 
-      // 3) 공백 없는 스택 코드 생성
       const openDiv = '<div style="text-align:center; max-width:1000px; margin:0 auto; line-height:0; font-size:0;">';
-      const imgTag = (u) => `<img src="\${u}" style="\${isGif(u) ? styleGif : styleDefault}">`;
+      const imgTag = (u) => `<img src="${u}" style="${isGif(u) ? styleGif : styleDefault}">`;
       const closeDiv = '</div>';
 
-      // 이미지 사이에 개행/공백을 아예 넣지 않음
       const finalHtml = openDiv + urls.map(imgTag).join('') + closeDiv;
 
-      // 4) 복사 영역(텍스트) + 미리보기(렌더)
       codeBox.textContent = finalHtml;
-      preview.innerHTML = `<div class="stack-preview">\${urls.map(imgTag).join('')}</div>`;
+      preview.innerHTML = `<div class="stack-preview">${urls.map(imgTag).join('')}</div>`;
     }
 
     function copyCode() {
