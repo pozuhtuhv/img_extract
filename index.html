@@ -73,6 +73,12 @@ const youtubeIframes = Array.from(doc.querySelectorAll('iframe[src]'))
   const previewStack = urls.length ? `<div class="stack-preview">${urls.map(imgTag).join('')}</div>` : '';
   preview.innerHTML = [youtubeIframes.join(''), previewStack].join('');
 }
+
+function copyCode() {
+  const code = document.getElementById('codeOutput').textContent.trim();
+  if (!code) { alert('복사할 코드가 없습니다. 먼저 추출을 실행하세요.'); return; }
+  navigator.clipboard.writeText(code).then(() => alert('코드가 복사되었습니다.'));
+}
 </script>
 
 </body>
