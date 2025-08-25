@@ -33,45 +33,47 @@
   <!-- 미리보기 (맨 아래) -->
   <div id="preview"></div>
 
-  <script>
-    function run() {
-      const raw = document.getElementById('htmlInput').value || '';
+<script>
+function run() {
+  const raw = document.getElementById('htmlInput').value || '';
 
-      // 1) HTML에서 img src 전부 추출
-      const regex = /<img[^>]*\ssrc\s*=\s*["']([^"']+)["'][^>]*>/gi;
-      const urls = [];
-      let m;
-      while ((m = regex.exec(raw)) !== null) urls.push(m[1]);
+  // HTML 파싱
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(raw, 'text/html');
 
-      const codeBox = document.getElementById('codeOutput');
-      const preview = document.getElementById('preview');
+  // 1) IMG src 추출
+  const urls = Array.from(doc.querySelectorAll('img[src]'))
+    .map(el => el.getAttribute('src'));
 
-      if (urls.length === 0) {
-        codeBox.textContent = '';
-        preview.innerHTML = "<p style='color:#d00'>img src를 찾지 못했습니다.</p>";
-        return;
-      }
+  // 2) YouTube iframe 원문 보존 추출 (여러 개면 모두 포함)
+const youtubeIframes = Array.from(doc.querySelectorAll('iframe[src]'))
+  .filter(el => /(?:youtube\.com|youtu\.be)/i.test(el.getAttribute('src') || ''))
+  .map(el => `<div style="display:flex; justify-content:center;">${el.outerHTML.trim()}</div>`);
 
-      // 2) 공백 없는 스택 코드 생성(편집기 여백 방지)
-      //    - 컨테이너: line-height:0; font-size:0;
-      //    - img: display:block; margin/padding/border 0; vertical-align:top;
-      const openDiv = '<div style="text-align:center; max-width:100%; margin:0 auto; line-height:0; font-size:0;">';
-      const imgTag = (u) => `<img src="${u}" style="width:100%; height:auto; display:block; margin:0; padding:0; border:0; vertical-align:top;">`;
-      const closeDiv = '</div>';
+  const codeBox = document.getElementById('codeOutput');
+  const preview = document.getElementById('preview');
 
-      // 이미지 사이에 개행/공백을 아예 넣지 않음 (일부 에디터 공백 처리 방지)
-      const finalHtml = openDiv + urls.map(imgTag).join('') + closeDiv;
+  if (urls.length === 0 && youtubeIframes.length === 0) {
+    codeBox.textContent = '';
+    preview.innerHTML = "<p style='color:#d00'>img 또는 유튜브 iframe을 찾지 못했습니다.</p>";
+    return;
+  }
 
-      // 3) 복사 영역(텍스트) + 미리보기(렌더)
-      codeBox.textContent = finalHtml;
-      preview.innerHTML = `<div class="stack-preview">${urls.map(imgTag).join('')}</div>`;
-    }
+  // 3) 이미지 스택 HTML 생성
+  const openDiv = '<div style="text-align:center; max-width:100%; margin:0 auto; line-height:0; font-size:0;">';
+  const imgTag = (u) => `<img src="${u}" style="width:100%; height:auto; display:block; margin:0; padding:0; border:0; vertical-align:top;">`;
+  const closeDiv = '</div>';
+  const stackHtml = urls.length ? openDiv + urls.map(imgTag).join('') + closeDiv : '';
 
-    function copyCode() {
-      const code = document.getElementById('codeOutput').textContent.trim();
-      if (!code) { alert('복사할 코드가 없습니다. 먼저 추출을 실행하세요.'); return; }
-      navigator.clipboard.writeText(code).then(() => alert('코드가 복사되었습니다.'));
-    }
-  </script>
+  // 4) 최종 출력 형식: (iframe...) + \n + (이미지 스택)
+  const finalHtml = [youtubeIframes.join('\n'), stackHtml].filter(Boolean).join('\n');
+
+  // 5) 복사용 코드 + 미리보기
+  codeBox.textContent = finalHtml;
+  const previewStack = urls.length ? `<div class="stack-preview">${urls.map(imgTag).join('')}</div>` : '';
+  preview.innerHTML = [youtubeIframes.join(''), previewStack].join('');
+}
+</script>
+
 </body>
 </html>
