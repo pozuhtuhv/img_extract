@@ -78,38 +78,66 @@ function run() {
   const raw = document.getElementById('htmlInput').value || '';
   const stripStyles = document.getElementById('stripStyle').checked;
 
-  // HTML 파싱
   const parser = new DOMParser();
   const doc = parser.parseFromString(raw, 'text/html');
 
-  // 1) <img> 태그에서 src 추출 (HTML 모드)
+  // 1) 이미지 URL 추출
   let urls = Array.from(doc.querySelectorAll('img[src]'))
     .map(el => el.getAttribute('src'))
     .filter(Boolean);
-
-  // 1-1) (텍스트 모드) <img>가 하나도 없으면 자유 텍스트에서 이미지 URL 추출
   if (urls.length === 0) {
     const imageUrlRegex = /(https?:\/\/[^\s"'<>]+?\.(?:png|jpe?g|gif|webp|svg)(?:\?[^\s"'<>]*)?)/gi;
     urls = (raw.match(imageUrlRegex) || [])
       .map(u => u.replace(/^[\s"'(\[]+|[)\]\s"',.;!?]+$/g, ''))
       .filter(Boolean);
   }
-
-  // 중복 제거(순서 유지)
   const seen = new Set();
   urls = urls.filter(u => (seen.has(u) ? false : (seen.add(u), true)));
 
-  // 2) YouTube iframe 원문 + src 추출 (HTML에 있을 때만)
+  // 2) YouTube → 요청하신 래퍼 형태로 변환
   const youtubeEls = Array.from(doc.querySelectorAll('iframe[src]'))
     .filter(el => /(?:youtube\.com|youtu\.be)/i.test(el.getAttribute('src') || ''));
-  const youtubeRawBlocks = youtubeEls.map(el => `<div style="display:flex; justify-content:center;">${el.outerHTML.trim()}</div>`);
-  const youtubeSrcs = youtubeEls.map(el => el.getAttribute('src'));
+
+  const buildYouTubeWrapperFromSrc = (src) => {
+    let base = (src || '').trim();
+    // watch / youtu.be → embed 정규화 + videoId 추출
+    let videoId = '';
+    const mWatch = base.match(/[?&]v=([^&]+)/);
+    const mShort = base.match(/youtu\.be\/([^?&]+)/);
+    const mEmbed = base.match(/\/embed\/([^?&/]+)/);
+
+    if (/youtube\.com\/watch/.test(base) && mWatch) {
+      videoId = mWatch[1];
+      base = `https://www.youtube.com/embed/${videoId}`;
+    } else if (/youtu\.be\//.test(base) && mShort) {
+      videoId = mShort[1];
+      base = `https://www.youtube.com/embed/${videoId}`;
+    } else if (mEmbed) {
+      videoId = mEmbed[1];
+    }
+
+    const hasQ = base.includes('?');
+    let finalSrc = base + (hasQ ? '&' : '?') + 'controls=0&autoplay=1&mute=1&controls=0&loop=1';
+    if (videoId && !/[\?&]playlist=/.test(finalSrc)) {
+      finalSrc += `&playlist=${videoId}`;
+    }
+
+    return `
+<div style="position: relative; width: 100%; padding-bottom: 56.25%; height: 0; margin-bottom: 30px;">
+  <iframe src="${finalSrc}" title="YouTube video player" frameborder="0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowfullscreen=""
+          style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></iframe>
+</div>`.trim();
+  };
+
+  const youtubeBlocks = youtubeEls.map(el => buildYouTubeWrapperFromSrc(el.getAttribute('src')));
 
   const codeBox = document.getElementById('codeOutput');
   const preview = document.getElementById('preview');
   const countInfo = document.getElementById('countInfo');
 
-  if (urls.length === 0 && youtubeEls.length === 0) {
+  if (urls.length === 0 && youtubeBlocks.length === 0) {
     codeBox.textContent = '';
     preview.innerHTML = "<p style='color:#d00'>img 또는 유튜브 iframe을 찾지 못했습니다.</p>";
     countInfo.textContent = '';
@@ -119,42 +147,26 @@ function run() {
   // 3) 이미지 스택 HTML 생성
   const openDiv = '<div style="text-align:center; max-width:100%; margin:0 auto; line-height:0; font-size:0;">';
   const imgTagForOutput = (u) =>
-    stripStyles
-      ? `<img src="${u}">`
-      : `<img src="${u}" style="width:100%; height:auto; display:block; margin:0; padding:0; border:0; vertical-align:top;">`;
+    stripStyles ? `<img src="${u}">`
+                : `<img src="${u}" style="width:100%; height:auto; display:block; margin:0; padding:0; border:0; vertical-align:top;">`;
   const imgTagForPreview = (u) =>
       `<img src="${u}" style="width:100%; height:auto; display:block; margin:0; padding:0; border:0; vertical-align:top;">`;
-
   const closeDiv = '</div>';
 
-  // 출력용(복사할 코드) : (iframe들) + (이미지 스택)
   const stackHtmlOutput = urls.length ? openDiv + urls.map(imgTagForOutput).join('') + closeDiv : '';
-  const finalHtml = [youtubeRawBlocks.join('\n'), stackHtmlOutput].filter(Boolean).join('\n');
 
-  // 4) 복사용 코드 출력
+  // 4) 복사용 코드 출력: 유튜브(요청 포맷) + 이미지 스택
+  const finalHtml = [youtubeBlocks.join('\n'), stackHtmlOutput].filter(Boolean).join('\n');
   codeBox.textContent = finalHtml;
 
-  // 5) 미리보기 구성
-  // 5-1) 유튜브 미리보기 (항상 보임, block 스택)
-  let ytPreview = '';
-  if (youtubeSrcs.length) {
-    const ytBoxes = youtubeSrcs.map(src => {
-      const hasQ = src.includes('?');
-      const safeSrc = src + (src.includes('rel=0') ? '' : (hasQ ? '&rel=0' : '?rel=0'));
-      return `<div class="yt-box"><iframe src="${safeSrc}" loading="lazy" allowfullscreen></iframe></div>`;
-    }).join('');
-    ytPreview = `<div class="yt-stack">${ytBoxes}</div>`;
-  }
-
-  // 5-2) 이미지 미리보기 (유튜브 아래가 아니라, 유튜브 '아래'가 아닌 '뒤'가 되게? — 요구사항: 유튜브가 위, 이미지가 아래)
+  // 5) 미리보기: 유튜브(동일 포맷) + 이미지
+  const ytPreview = youtubeBlocks.join('');
   const previewStack = urls.length ? `<div class="stack-preview">${urls.map(imgTagForPreview).join('')}</div>` : '';
-
-  // 6) 미리보기 출력: 유튜브 위, 그 다음 이미지
   preview.innerHTML = [ytPreview, previewStack].filter(Boolean).join('');
 
-  // 7) 개수 표기 - 작게
-  const totalLinks = urls.length + youtubeSrcs.length;
-  countInfo.textContent = `이미지 ${urls.length}개${youtubeSrcs.length ? `, 유튜브 ${youtubeSrcs.length}개` : ''} (총 ${totalLinks}개)`;
+  // 6) 개수 표기
+  const totalLinks = urls.length + youtubeBlocks.length;
+  countInfo.textContent = `이미지 ${urls.length}개${youtubeBlocks.length ? `, 유튜브 ${youtubeBlocks.length}개` : ''} (총 ${totalLinks}개)`;
 }
 
 function copyCode() {
